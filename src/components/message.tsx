@@ -1,5 +1,5 @@
 import useWebSocket from "../hooks/useWebSocket";
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useRef, useState} from "react";
 import {AiFillInfoCircle} from "react-icons/ai";
 import {useAppDispatch, useAppSelector} from "../hooks";
 import {capitalizeFirstLetter, checkOnline, formatRelativeTime, handleEnterPressed} from "../utils/index";
@@ -11,11 +11,13 @@ import {IoMdClose} from "react-icons/io"
 
 export default function Message(){
     const dispatch = useAppDispatch();
-    const socket = useWebSocket("http://localhost:3005");
+    const [socket,reloadSocket] = useWebSocket("http://localhost:3005");
     const {conversation,roomId,sender_id,messages} = useAppSelector(state => state.app);
     const [text,setText] = useState<string>("");
     const [onlineUser, setOnlineUser] = useState<any>("idle");
     const [isOpen, setIsOpen] = useState(false)
+    const messagesRef = useRef<HTMLDivElement>(null);
+
 
     useEffect(() => {
         if(socket){
@@ -25,13 +27,18 @@ export default function Message(){
             });
 
             socket.on("previousMessages", (messages:MessageProps[]) => {
-                console.log(messages)
                 dispatch(setPreviousMessage(messages))
             })
 
             socket.on("receiveMessage", (message) => {
                 dispatch(setMessage(message));
-                console.log("Yeni mesaj alındı:", message);
+                if (messagesRef.current) {
+                    messagesRef.current.scrollTo({
+                        top:  (messagesRef.current.scrollHeight) ,
+                        behavior: "smooth"
+                    })
+
+                  }
             });
 
             socket.on("userOnline", (userId) => {
@@ -48,9 +55,12 @@ export default function Message(){
                 }
             });
         }
-    }, [socket,roomId,conversation]);
+    }, [socket]);
 
 
+    useEffect(() => {
+        reloadSocket();
+    },[roomId])
 
 
 
@@ -93,7 +103,7 @@ export default function Message(){
                         </button>
                     </div>
                 </div>
-                <div className="flex flex-col p-4 gap-2 flex-1 h-[calc(100%-_-60px)] overflow-y-auto">
+                <div ref={messagesRef} className="flex flex-col p-4 gap-2 flex-1 h-[calc(100%-_-60px)] overflow-y-auto">
                     {messages?.map(item => {
                         if(item.sender_id === Number(sender_id)){
                             return (
